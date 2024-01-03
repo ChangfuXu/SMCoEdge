@@ -111,13 +111,13 @@ if __name__ == "__main__":
     print('============ Training finished ==========')
 
     # Plot the average make-span varying episodes
-    np.savetxt('Makespan_' + ALGORITHM_TYPE + '_k' + str(NUM_K) +'_f10_200.csv', aver_make_spans, delimiter=',', fmt='%.4f')
+    np.savetxt('results/Makespan_' + ALGORITHM_TYPE + '_k' + str(NUM_K) +'_f10_200.csv', aver_make_spans, delimiter=',', fmt='%.4f')
     plt.figure(1)
     plt.plot(aver_make_spans)
     plt.ylabel('Average make-span')
     plt.xlabel('Episode')
-    plt.savefig('Makespan_' + ALGORITHM_TYPE + '_k' + str(NUM_K) +'_f10_200.png')
+    plt.savefig('results/Makespan_' + ALGORITHM_TYPE + '_k' + str(NUM_K) +'_f10_200.png')
 
     # Plot the average failure rate varying time slot
-    np.savetxt('Failure_' + str(ALGORITHM_TYPE) + '_k' + str(NUM_K) +'_f10_200.csv', aver_failure_rates, delimiter=',', fmt='%.4f')
+    np.savetxt('results/Failure_' + str(ALGORITHM_TYPE) + '_k' + str(NUM_K) +'_f10_200.csv', aver_failure_rates, delimiter=',', fmt='%.4f')
 
