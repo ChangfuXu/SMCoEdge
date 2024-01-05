@@ -1,7 +1,8 @@
 ################################################
 # Dynamic Parallel Multi-Server Selection and Allocation in Collaborative Edge Computing, including:
 # 1) Make the multi-ES selection decision by the proposed top-k DQN model
-# 2) Make the workload allocation decision by the proposed SE or HEWA algorithm
+# 2) Make the workload allocation decision by the proposed Solving Equation (SE)
+# or high Efficient Workload Allocation (HEWA) method
 # Author: Changfu Xu
 #################################################
 from environment import OffloadEnvironment
@@ -12,11 +13,8 @@ import matplotlib.pyplot as plt
 
 def DRL_SMO_algorithm(DQN_list_, NUM_EPISODE_):
     action_step = 0
-    training_step = 0
     for episode_ in range(NUM_EPISODE_):
         print('Episode: %d' % episode_)
-        # print('Greedy probability: %.10f' % DQN_list_[0].epsilon)  # Print the epsilon-greedy value
-
         # BITRATE ARRIVAL
         arrival_tasks = np.random.uniform(env.min_bit, env.max_bit, size=[env.n_time, env.n_BSs, env.n_tasks])
         arrival_tasks = arrival_tasks * (
@@ -28,7 +26,7 @@ def DRL_SMO_algorithm(DQN_list_, NUM_EPISODE_):
         state_bnt = np.zeros([env.n_BSs, env.n_tasks, env.n_features])  # State: [D_{n,t},Q_{1,t},..., Q_{B,t}]
 
         # ========================================= DRL ===================================================
-        # -------- Train DQN model with reinforcement learning ----------------
+        # -------- Train top-k DQN model with deep reinforcement learning ----------------
         # for time_index in range(0, NUM_TIME_):  # Perform action in the set (T) of time slots
         for t in range(env.n_time - 1):
             for b_index in range(env.n_BSs):
@@ -39,8 +37,9 @@ def DRL_SMO_algorithm(DQN_list_, NUM_EPISODE_):
                         all_actions[b_index][n_index] = DQN_list_[b_index].choose_action(state_bnt[b_index][n_index])
                         # Perform task offloading and achieve its reward
                         reward[b_index][n_index] = env.perform_offloading(t, b_index, n_index, all_actions[b_index][n_index])
-
-            env.update_queues(t)
+            env.update_queues(t)  # Update the processing queues of all ESs
+            action_step += 1  # Add the number of action step (Note that one step does not mean one store)
+            # Observe next system state and store transition tuple
             if t > 0:  # Since the initial queue length is set to 0, the samples at time slot are dropped
                 for b_index in range(env.n_BSs):
                     for n_index in range(env.n_tasks):
@@ -53,16 +52,11 @@ def DRL_SMO_algorithm(DQN_list_, NUM_EPISODE_):
                             # Store transition tuple
                             DQN_list_[b_index].store_transition(state_bnt[b_index][n_index], all_actions[b_index][n_index],
                                                                 reward[b_index][n_index], next_state_bnt)
-            # ADD STEP (one step does not mean one store)
-            action_step += 1
-            # Set learning start time as bigger than 200 and frequency with each 10 steps
-            if (action_step > 200) and (action_step % 10 == 0):
 
+            # Set learning start time as bigger than 200 and frequency with each 10 steps
+            if (action_step > 200) and (action_step % 10 == 0):  # 200 and 10 can be adjusted by user
                 for b_index in range(env.n_BSs):
                     DQN_list_[b_index].learn()  # Perform training
-                # training_step += 1
-                # print('Training step: %d' % training_step)
-
         make_spans = env.make_spans.flatten()
         aver_make_spans[episode_] = np.mean(make_spans[make_spans > 0])
         all_num_tasks = np.size(make_spans[make_spans > 0])
@@ -110,14 +104,38 @@ if __name__ == "__main__":
 
     print('============ Training finished ==========')
 
-    # Plot the average make-span varying episodes
-    np.savetxt('results/Makespan_' + ALGORITHM_TYPE + '_k' + str(NUM_K) +'_f10_200.csv', aver_make_spans, delimiter=',', fmt='%.4f')
+    #  Plot and save loss
+    loss = np.array(DQN_list[0].history_loss)
+    for i in range(NUM_BSs - 1):
+        loss = loss + np.array(DQN_list[i + 1].history_loss)
+    loss = loss / NUM_BSs  # Calculate the loss mean of the DRL models in all ESs
+    # np.savetxt('results/Loss_' + ALGORITHM_TYPE + '_k' + str(NUM_K) +'_deadline' + str(np.round(DEADLINE_TIME_SLOTS/10, 1)) + '_prob' + str(np.round(TASK_ARRIVAL_PROB, 1)) +'_tasks' + str(NUM_TASK) +  '_f' + str(env.BS_capacities[0]) + '_' + str(NUM_EPISODE) + '.csv', loss, delimiter=',', fmt='%.4f')
     plt.figure(1)
+    plt.plot(np.arange(len(loss)), loss)
+    plt.ylabel('Loss')
+    plt.xlabel('Training step')
+    plt.savefig('results/Loss_' + ALGORITHM_TYPE + '_k' + str(NUM_K) + '_deadline' + str(
+        np.round(DEADLINE_TIME_SLOTS / 10, 1)) + '_prob' + str(np.round(TASK_ARRIVAL_PROB, 1)) + '_tasks' + str(
+        NUM_TASK) + '_f' + str(env.BS_capacities[0]) + '_' + str(NUM_EPISODE) + '.png')
+    plt.close()
+    # Plot  and save the average make-span varying time slot
+    # np.savetxt('results/Makespan_' + ALGORITHM_TYPE + '_k' + str(NUM_K) +'_deadline' + str(np.round(DEADLINE_TIME_SLOTS/10, 1)) + '_prob' + str(np.round(TASK_ARRIVAL_PROB, 1)) +'_tasks' + str(NUM_TASK) +  '_f' + str(env.BS_capacities[0]) + '_' + str(NUM_EPISODE) + '.csv', aver_make_spans, delimiter=',', fmt='%.4f')
+    plt.figure(2)
     plt.plot(aver_make_spans)
     plt.ylabel('Average make-span')
     plt.xlabel('Episode')
-    plt.savefig('results/Makespan_' + ALGORITHM_TYPE + '_k' + str(NUM_K) +'_f10_200.png')
-
-    # Plot the average failure rate varying time slot
-    np.savetxt('results/Failure_' + str(ALGORITHM_TYPE) + '_k' + str(NUM_K) +'_f10_200.csv', aver_failure_rates, delimiter=',', fmt='%.4f')
+    plt.savefig('results/Makespan_' + ALGORITHM_TYPE + '_k' + str(NUM_K) + '_deadline' + str(
+        np.round(DEADLINE_TIME_SLOTS / 10, 1)) + '_prob' + str(np.round(TASK_ARRIVAL_PROB, 1)) + '_tasks' + str(
+        NUM_TASK) + '_f' + str(env.BS_capacities[0]) + '_' + str(NUM_EPISODE) + '.png')
+    plt.close()
+    # Plot  and save the average failure rate varying time slot
+    # np.savetxt('results/Failure_' + ALGORITHM_TYPE + '_k' + str(NUM_K) +'_deadline' + str(np.round(DEADLINE_TIME_SLOTS/10, 1)) + '_prob' + str(np.round(TASK_ARRIVAL_PROB, 1)) +'_tasks' + str(NUM_TASK) +  '_f' + str(env.BS_capacities[0]) + '_' + str(NUM_EPISODE) + '.csv', aver_failure_rates, delimiter=',', fmt='%.4f')
+    plt.figure(3)
+    plt.plot(aver_failure_rates)
+    plt.ylabel('Average failure rate')
+    plt.xlabel('Episode')
+    plt.savefig('results/Failure_' + ALGORITHM_TYPE + '_k' + str(NUM_K) + '_deadline' + str(
+        np.round(DEADLINE_TIME_SLOTS / 10, 1)) + '_prob' + str(np.round(TASK_ARRIVAL_PROB, 1)) + '_tasks' + str(
+        NUM_TASK) + '_f' + str(env.BS_capacities[0]) + '_' + str(NUM_EPISODE) + '.png')
+    plt.close()
 

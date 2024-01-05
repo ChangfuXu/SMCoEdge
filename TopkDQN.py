@@ -144,17 +144,14 @@ class DeepQNetwork:
         if np.random.uniform() < self.epsilon:
             q_values = self.sess.run(self.q_eval, feed_dict={self.state: observation})  # Get all Q values by running
             # self.store_q_value.append(q_values)  # Store Q values
-
             # Note the q_values is 2D array. So, here we should get first row values, i.e., q_values[0]
-            # action = np.argmax(q_values)
             sort_actions = np.argsort(q_values[0])[::-1]  # Sort from big to small
-            action = sort_actions[0:self.dim_action]  # Select the dim_action ESs
+            action = sort_actions[0:self.dim_action]  # Select the top-k (dim_action) ESs
         else:
             action = random.sample(range(0, self.n_actions), self.dim_action)  # random k ESs in [0, n_actions)
-
         return action
 
-    # model learning
+    # Model learning
     def learn(self):
         # check if replace target_net parameters
         if self.traning_step % self.replace_target_iter == 0:
@@ -190,14 +187,12 @@ class DeepQNetwork:
         q_target = q_eval.copy()
         batch_index = np.arange(self.batch_size, dtype=np.int32)
         # Get all actions in batch memory, where action with a single value (int action)
-        # eval_act_index = batch_memory[:, self.n_features].astype(int)
         eval_act_index = batch_memory[:, self.n_features:self.n_features + self.dim_action].astype(int)
 
         # Get all reward indexes in batch memory, where reward with a single value
         reward = batch_memory[:, self.n_features + self.dim_action]
 
         # update the q_target at the particular batch at the corresponding action
-        # selected_q_next = np.max(q_next)
         q_next = np.sort(q_next)[:, ::-1]  # Sort from big to small
         for act_index in range(self.dim_action):
             q_target[batch_index, eval_act_index[:, act_index]] = reward + self.gamma * q_next[:, act_index]
@@ -213,6 +208,3 @@ class DeepQNetwork:
         self.epsilon = self.epsilon + self.epsilon_increment if self.epsilon < self.epsilon_max else self.epsilon_max
         self.traning_step += 1
         self.history_loss.append(self.loss_)  # store history cost
-
-
-

@@ -9,14 +9,14 @@ class OffloadEnvironment:
         self.action_dim = dim_action  # The number k of multi-ES selection
         self.n_actions = self.n_BSs  # The action space
         self.n_time = num_time  # The number of time slot set
-        self.duration = 0.1  # unit: second
+        self.duration = 0.1  # The length of each time t. unit: second
 
         # Environment parameter setting
-        self.BS_capacities = np.array([10, 20, 30, 40, 50])  # GHz or Gigacycles/s
-        # self.BS_capacities = np.array([30, 35, 40, 45, 50])  # GHz or Gigacycles/s        #
-        self.tran_rates = np.array([500, 425, 450, 400, 475])  ## Transmission rate ranges from 400 t0 500 Mbits/s.
+        self.BS_capacities = np.array([10, 20, 30, 40, 50])  # In range [10, 50] GHz or Gigacycles/s
+        # self.BS_capacities = np.array([30, 35, 40, 45, 50])  # In range [30, 50] GHz or Gigacycles/s
+        self.tran_rates = np.array([500, 425, 450, 400, 475])  # Transmission rate range [400, 500] Mbits/s.
         self.comp_density = 30 / 1000000 * np.random.uniform(100, 300, size=[self.n_tasks])  # Gigacycles/Mbit
-        self.deadline_delay = max_time * self.duration  # in second
+        self.deadline_delay = max_time * self.duration  # In second
 
         # Task size setting
         self.max_bit = 40  # Mbits
@@ -37,7 +37,7 @@ class OffloadEnvironment:
         # Initial the task offloading results. 0: succeed. 1: failure.
         self.is_fail_tasks = np.zeros([self.n_time, self.n_BSs, self.n_tasks])  # failure indicator
         # The control parameter of using Solving Equation (SE) or High Efficient Workload Allocation procedure
-        self.algorithm_type = alg_type
+        self.algorithm_type = alg_type  # Algorithm type
 
     # Initialize the system environment
     def initialize_env(self, arrival_bits_):
@@ -53,11 +53,7 @@ class OffloadEnvironment:
         # Initial the task offloading results. 0: succeed. 1: failure.
         self.is_fail_tasks = np.zeros([self.n_time, self.n_BSs, self.n_tasks])  # failure indicator
 
-    # Perform task offloading to achieve:
-    # (1) Service delays;
-    # (2) Fail results;
-    # (3) Next state;
-    # (4) Next queue workload.
+    # Perform task offloading to achieve: (1) Task offloading make span; (2) Fail results.
     def perform_offloading(self, t, b, n, a_set):
         allocation_fractions = np.zeros(self.n_BSs)
         tran_comp_delays = np.zeros(self.n_BSs)
@@ -144,3 +140,36 @@ class OffloadEnvironment:
         for b_ in range(self.n_BSs):
             self.queue_len[t + 1][b_] = np.max(
                 [self.queue_len[t][b_] + self.proc_queue_bef[t][b_] - self.BS_capacities[b_] * self.duration, 0])
+
+    # Perform task offloading with greedy algorithm
+    def greedy_perform_offloading(self, t, b, n):
+        allocation_fractions = np.zeros(self.n_BSs)
+        tran_comp_delays = np.zeros(self.n_BSs)
+        wait_delays = np.zeros(self.n_BSs)
+        n_bit = self.arrival_bits[t][b][n]  # Get the n_index's bit data
+
+        opt_action = np.argmin(self.queue_len[t])
+        if opt_action == b:
+            wait_delays[opt_action] = np.min([(self.queue_len[t][opt_action] + self.proc_queue_bef[t][opt_action]) / self.BS_capacities[opt_action], self.deadline_delay])
+            tran_comp_delays[opt_action] = n_bit * self.comp_density[n] / self.BS_capacities[opt_action]
+        else:
+            wait_delays[opt_action] = np.min([self.tran_delay_bef[t][b] + (self.queue_len[t][opt_action] + self.proc_queue_bef[t][opt_action]) / self.BS_capacities[opt_action], self.deadline_delay])
+            tran_comp_delays[opt_action] = n_bit / self.tran_rates[opt_action] + n_bit * self.comp_density[n] / self.BS_capacities[opt_action]
+
+        self.make_spans[t][b][n] = tran_comp_delays[opt_action] + wait_delays[opt_action]
+
+        allocation_fractions[opt_action] = 1
+        # Update the transmission delay at the BS b before current arrival task
+        # Note that when the BS b is selected to process the task, the transmission delay doesn't need to update
+        # since the local transmission rate is very quick in real system.
+        if opt_action != b:
+            self.tran_delay_bef[t][b] = self.tran_delay_bef[t][b] + allocation_fractions[opt_action] * n_bit / self.tran_rates[opt_action]
+        # Update the processing queue workload length at the selected ES before current arrival task
+        self.proc_queue_bef[t][opt_action] = self.proc_queue_bef[t][opt_action] + allocation_fractions[opt_action] * n_bit * self.comp_density[n]
+
+        # Record the fail task and Calculate the make-san of the action of task n offloading
+        if self.make_spans[t][b][n] > self.deadline_delay:
+            self.is_fail_tasks[t][b][n] = 1
+            self.make_spans[t][b][n] = self.deadline_delay
+
+        return opt_action
