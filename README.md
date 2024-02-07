@@ -1,4 +1,4 @@
-This code is a implementation of our paper "Dynamic Parallel Multi-Server Selection and Allocation in Collaborative Edge Computing", submitted to IEEE Transactions on Mobile Computing (Major revision). This paper is a journal extension to our previous conference article "SMCoEdge: Simultaneous multi-server offloading for collaborative mobile edge computing" in ICA3PP 2023.
+This code is a implementation of our paper "Dynamic Parallel Multi-Server Selection and Allocation in Collaborative Edge Computing", submitted to IEEE Transactions on Mobile Computing (**Minor revision**). This paper is a journal extension to our previous conference article "SMCoEdge: Simultaneous multi-server offloading for collaborative mobile edge computing" in ICA3PP 2023.
 The function of our method mainly two stages:
 1) Make the multi-ES selection decision by the proposed top-k DQN model in the first stage.
 2) Make the workload allocation decision by the proposed Solving Equation (SE) or High Efficient Workload Allocation (HEWA) method in the second stage.
