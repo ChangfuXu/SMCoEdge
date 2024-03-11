@@ -39,7 +39,7 @@ If our method can be used in your paper, please help cite:
   title={Dynamic Parallel Multi-Server Selection and Allocation in Collaborative Edge Computing},
   author={Xu, Changfu and Guo, Jianxiong and Li, Yupeng and Zou, Haodong and Jia, Weijia and Wang, Tian},
   journal={IEEE Transactions on Mobile Computing},
-  year={2024 (Early Access)},
+  year={2024, doi: 10.1109/TMC.2024.3376550.},
   publisher={IEEE}
 }
 
