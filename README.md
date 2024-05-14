@@ -29,7 +29,7 @@ If our method can be used in your paper, please help cite:
 @inproceedings{xu2023smcoedge,
   title={SMCoEdge: Simultaneous Multi-server Offloading for Collaborative Mobile Edge Computing},
   author={Xu, Changfu and Li, Yupeng and Chu, Xiaowen and Zou, Haodong and Jia, Weijia and Wang, Tian},
-  booktitle={International Conference on Algorithms and Architectures for Parallel Processing},
+  booktitle={The 23rd International Conference on Algorithms and Architectures for Parallel Processing (ICA3PP 2023)},
   pages={73--91},
   year={2023},
   organization={Springer}
